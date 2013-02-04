@@ -70,6 +70,8 @@ Testpad.prototype.run = function() {
 }
 
 Testpad.prototype.request = function(req, res) {
+	// change with extending
+	req.workers = this.workers
 	new Runbox(this, req, res).run()
 }
 
@@ -81,16 +83,15 @@ var Runbox = function(testpad, req, res) {
 
 Runbox.prototype.run = function() {
 
-	var req  = this.request
-		, resp = this.response
+	var req       = this.request
+		, res     = this.response
 		, testpad = this.testpad
-		, info = req.urlInfo = url.parse('http://' + req.headers.host + req.url)
+		, info    = req.urlInfo = url.parse('http://' + req.headers.host + req.url, true)
 
-	this.log(req.url)
-
-	if (this.cache[info.hostname]) {
-		return this.runScript(this.cache[info.hostname])
-	}
+	// Caching temporary disabled
+	//if (this.cache[info.hostname]) {
+	//	return this.runScript(this.cache[info.hostname])
+	//}
 
 	var lookup = "." + info.hostname
 		, zones  = testpad.zones
@@ -117,6 +118,10 @@ Runbox.prototype.run = function() {
 			}
 			
 			req.config = dns
+			req.current = {
+				directory : path.join(directory, hostDir)
+			}
+
 			runbox.runScript(script)
 		})
 	}
@@ -135,7 +140,8 @@ Runbox.prototype.error = function(code, message) {
 }
 
 Runbox.prototype.runScript = function(script) {
-	this.cache[this.request.urlInfo.hostname] = script
+	// Cache temporary disabled
+	//this.cache[this.request.urlInfo.hostname] = script
 	require(script)(this.request, this.response)
 }
 
