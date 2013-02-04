@@ -10,7 +10,10 @@ var Testpad = module.exports = function (configPath) {
 		fs.readFileSync(configPath, 'utf-8')
 	)
 
+	config.workers = config.workers || path.join(__dirname, 'workers')
 	this.runmode = config.runmode || 'production'
+	this.workers = {}
+	this.cache = {}
 	this.dns   = {}
 	this.zones = []
 
@@ -43,6 +46,17 @@ var Testpad = module.exports = function (configPath) {
 		 	return 0
 		}
 	})
+
+	// Initialize workers
+	for ( var name in config.worker) {
+		var workerConfig = config.worker[name]
+		console.log(name, workerConfig)
+		if (workerConfig.enabled != true) continue
+
+		var usedWorker = workerConfig.use ? this.workers[workerConfig.use] : void(0)
+
+		this.workers[name] = require(path.join(config.workers, name + '.js'))(workerConfig, usedWorker)
+	}
 }
 
 Testpad.prototype.run = function() {
@@ -52,40 +66,77 @@ Testpad.prototype.run = function() {
 		.createServer(this.request.bind(this))
 		.listen(config.port, config.hostname)
 
-	console.log("Start running in %s mode at %s:%s", this.runmode, config.port, config.hostname || 'localhost')
+	console.log("Start running in %s mode at %s:%s", this.runmode, config.hostname || 'localhost', config.port)
 }
 
 Testpad.prototype.request = function(req, res) {
+	new Runbox(this, req, res).run()
+}
 
-	var urlinfo = req.urlInfo = url.parse("http://" + req.headers.host + req.url, true)
-	
-	// res.end(urlinfo.hostname)
-	var lookup = "." + urlinfo.hostname
-		, zones  = this.zones
+var Runbox = function(testpad, req, res) {
+	this.testpad  = testpad
+	this.request  = req
+	this.response = res
+}
+
+Runbox.prototype.run = function() {
+
+	var req  = this.request
+		, resp = this.response
+		, testpad = this.testpad
+		, info = req.urlInfo = url.parse('http://' + req.headers.host + req.url)
+
+	this.log(req.url)
+
+	if (this.cache[info.hostname]) {
+		return this.runScript(this.cache[info.hostname])
+	}
+
+	var lookup = "." + info.hostname
+		, zones  = testpad.zones
 
 	for (var i = 0, l = zones.length; l > i; i++) {
 		var zone = zones[i]
 
 		if (lookup.substr( - zone.length) !== zone) continue
 
-
-		var dns = this.dns[zone]
+		var dns = testpad.dns[zone]
 			, directory   = dns.directory
 			, hostDir     = lookup.substr(0, lookup.length - zone.length).substr(1)
-			, scriptName  = dns['require.' + this.runmode]
-			, script = path.join(directory, hostDir, scriptName)
+			, scriptName  = dns['require.' + testpad.runmode]
+			, script      = path.join(directory, hostDir, scriptName)
 
-		fs.exists(script, function(exists) {
-			if (! exists) return res.end('Not found')
-				require(script)(req, res)
+		var testpad = this.testpad
+			, runbox  = this
+
+		return fs.exists(script, function(exists) {
+			if (! exists) {
+				runbox.error(500, 'Server error')
+				console.error("Host " + info.hostname + " run script not found")
+				return
+			}
+				runbox.runScript(script)
 		})
-
-		return
 	}
 
-	res.end('Not found')
+	this.error(404, "Host not found")
 }
 
-Testpad.prototype.runScript = function(script) {
-	
+Runbox.prototype.cache = {}
+
+Runbox.prototype.error = function(code, message) {
+	this.response
+		.writeHead(code, {
+			'Content-Type' : 'text/plain'
+		})
+		.end(message)
+}
+
+Runbox.prototype.runScript = function(script) {
+	this.cache[this.request.urlInfo.hostname] = script
+	require(script)(this.request, this.response)
+}
+
+Runbox.prototype.log = function(msg) {
+	console.log("%s %s %s", new Date(), this.request.urlInfo.hostname, msg)
 }
