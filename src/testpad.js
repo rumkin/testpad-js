@@ -50,12 +50,12 @@ var Testpad = module.exports = function (configPath) {
 	// Initialize workers
 	for ( var name in config.worker) {
 		var workerConfig = config.worker[name]
-		console.log(name, workerConfig)
-		if (workerConfig.enabled != true) continue
 
-		var usedWorker = workerConfig.use ? this.workers[workerConfig.use] : void(0)
-
-		this.workers[name] = require(path.join(config.workers, name + '.js'))(workerConfig, usedWorker)
+		if ( ! workerConfig.use) {
+			this.workers[name] = require(path.join(config.workers, name + '.js'))(workerConfig)
+		} else {
+			this.workers[name] = require(path.join(config.workers, workerConfig.use + '.js'))(workerConfig)
+		}
 	}
 }
 
@@ -115,7 +115,9 @@ Runbox.prototype.run = function() {
 				console.error("Host " + info.hostname + " run script not found")
 				return
 			}
-				runbox.runScript(script)
+			
+			req.config = dns
+			runbox.runScript(script)
 		})
 	}
 
