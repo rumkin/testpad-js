@@ -53,6 +53,9 @@ _extend(Testpad.prototype, {
 	},
 
 	runLoop : function(req, res) {
+		
+		res.setHeader("Content-Type", "text/plain")
+
 		new Loop([req, res], this, this.getLoop(this.config.workers)).next()
 	},
 
