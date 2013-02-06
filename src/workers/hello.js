@@ -11,28 +11,28 @@ var url = require("url")
 
 
 module.exports = function(config, testpad) {
-	// Parse zones
+	// Parse hosts
 	var testpadConfig = testpad.config
 		, dns   = {}
-		, zones = []
+		, hosts = []
 
 	for (var option in testpadConfig) {
-		if ( ! /^zone /.test(option)) continue;
+		if ( ! /^host /.test(option)) continue;
 
-		var zone =  testpadConfig[option]
+		var host =  testpadConfig[option]
 			, name = option.substr(5)
-			, mask = (zone.mask || '').split(/,\s*/)
+			, mask = (host.mask || '').split(/,\s*/)
 
-		zone.mask = mask
+		host.mask = mask
 
 		for (var i = 0, l = mask.length; l > i; i++) {
-			dns[mask[i]] = zone
-			zones.push(mask[i])
+			dns[mask[i]] = host
+			hosts.push(mask[i])
 		}
 	}
 
-	// Sort dns zones in reverse order
-	zones = zones.sort(function(a, b) {
+	// Sort dns hosts in reverse order
+	hosts = hosts.sort(function(a, b) {
 		a = a.split('.').reverse().join('.')
 		b = b.split('.').reverse().join('.')
 
@@ -46,7 +46,7 @@ module.exports = function(config, testpad) {
 		}
 	})
 
-	testpad.zones = zones
+	testpad.hosts = hosts
 	testpad.dns   = dns
 
 	// WORKER -------------------------------------------------------------------
@@ -56,21 +56,21 @@ module.exports = function(config, testpad) {
 
 		req.urlinfo = url.parse('http://' + req.headers.host + req.url, true)
 		req.query   = req.urlinfo.query
-		req.zone    = false
+		req.host    = false
 
 		var lookup = "." + req.urlinfo.hostname
-			, zones  = testpad.zones
+			, hosts  = testpad.hosts
 
-		for (var i = 0, l = zones.length; l > i; i++) {
-			var zone = zones[i]
+		for (var i = 0, l = hosts.length; l > i; i++) {
+			var host = hosts[i]
 
-			if (lookup.substr( - zone.length) !== zone) continue
+			if (lookup.substr( - host.length) !== host) continue
 
-			req.zone = testpad.dns[zone]
+			req.host = testpad.dns[host]
 		}
 
-		if ( config.force && ! req.zone) {
-			next (new Error("No dns zone found"))
+		if ( config.force && ! req.host) {
+			next (new Error("No dns host found"))
 		} else {
 			next()
 		}
