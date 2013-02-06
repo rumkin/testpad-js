@@ -1,7 +1,11 @@
-module.exports = function(config) {
+module.exports = function(config, pad) {
 
 	// Configured worker
-	return function(req, res) {
-		res.end('Static worker')
+	return function(next, req, res) {
+		res.setHeader("Content-Type", "text/plain")
+		res.write("loop a\r\n")
+
+		next()
+
 	}
 }
