@@ -12,14 +12,14 @@ var url = require("url")
 
 module.exports = function(config, testpad) {
 	// Parse zones
-	var config = testpad.config
+	var testpadConfig = testpad.config
 		, dns   = {}
 		, zones = []
 
-	for (var option in config) {
+	for (var option in testpadConfig) {
 		if ( ! /^zone /.test(option)) continue;
 
-		var zone =  config[option]
+		var zone =  testpadConfig[option]
 			, name = option.substr(5)
 			, mask = (zone.mask || '').split(/,\s*/)
 
@@ -49,15 +49,30 @@ module.exports = function(config, testpad) {
 	testpad.zones = zones
 	testpad.dns   = dns
 
-	// Configured worker
+	// WORKER -------------------------------------------------------------------
+	
 	return function (next, req, res, err) {
+		if (err) next(err)
+
 		req.urlinfo = url.parse('http://' + req.headers.host + req.url, true)
 		req.query   = req.urlinfo.query
+		req.zone    = false
 
-		res.write(require("util").inspect(this.dns))
-		res.write(require("util").inspect(this.zones))
-		// TODO detect host
+		var lookup = "." + req.urlinfo.hostname
+			, zones  = testpad.zones
 
-		next()
+		for (var i = 0, l = zones.length; l > i; i++) {
+			var zone = zones[i]
+
+			if (lookup.substr( - zone.length) !== zone) continue
+
+			req.zone = zone
+		}
+
+		if ( config.force && ! req.zone) {
+			next (new Error("No dns zone found"))
+		} else {
+			next()
+		}
 	}
 }
