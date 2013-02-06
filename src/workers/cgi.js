@@ -22,37 +22,72 @@ module.exports = function cgi(config)
 	        DOCUMENT_ROOT   : request.current.directory,
 	        SERVER_NAME     : urlInfo.hostname,
 	        SERVER_PORT     : urlInfo.port,
+          SERVER_SOFTWARE : 'node/' + process.version,
 	        SERVER_PROTOCOL : "HTTP/" + request.httpVersion,
-		    HTTP_HOST     	: urlInfo.hostname || 'localhost',
-	        REDIRECT_STATUS : 1,
+          REQUEST_METHOD  : request.method,
+	        REDIRECT_STATUS : 200,
 	      }
-
-	for (var i in request.headers) {
-		if ( ! params.hasOwnProperty(i))
-			params[i] = request.headers[i]
-	}
 
 	var command = config.command
 
 	command = command.replace('%pathname%', params.SCRIPT_FILENAME)
 
-    if (postData)
-    {
-      params.BODY            = postData.replace(/(["\s'$`\\])/g,'\\$1')
-      params.CONTENT_LENGTH  = postData.length
+  for (var header in request.headers) {
+    var name = 'HTTP_' + header.toUpperCase().replace(/-/g, '_');
+    params[name] = request.headers[header];
+  }
+
+  if (request.method == 'POST') {
+    params.CONTENT_LENGTH  = request.headers['content-length']
+    params.CONTENT_TYPE    = request.headers['content-type']
+  }
+
+  command = command.split(" ")
+  var spawn    = require('child_process').spawn
+    , cgiSpawn = spawn(command.shift(), command, { env : params });
+  
+  request.pipe(cgiSpawn.stdin, {
+    data : function (data) {
+      console.log('stdin: ' + data)
+    },
+    end : function () {
+      console.log('stdin end')
+    }
+  })
+
+  var headers = false
+  cgiSpawn.stdout.on('data', function (data) {
+    data = data + ''
+    if (! headers) {
+      while (! /^\r\n/.test(data)) {
+        var match = /^([A-z][-_A-z]*):\s(.*)\r\n/.exec(data)
+        if (match) {
+          response.setHeader(match[1], match[2])
+          data = data.substr(match[0].length)
+        }
+
+        if (!data.length) break;
+      }
+
+      if (data.length) headers = false
     }
 
-    var cgiParams= ''
-      , run = command
+    response.write(data)
+  });
 
-    for(var p in params)
-      cgiParams += 'export ' + p + '="' + params[p] + '" \r\n'
-    
-    if (postData)
-      run = 'exec echo "$BODY" | ' + run
-    
+  cgiSpawn.stderr.on('data', function (data) {
+    response.write(data)
+  });
+
+  cgiSpawn.on('exit', function (code) {
+    response.end()
+    if (code > 0)
+     next(new Error('child process exited with code ' + code))
+  });
+
+    return
     //var child = exec(run, { env : params, stdio : [ request. , process.stdout, process.stderr] },
-    var child = exec(run, { env : params },
+    var child = exec(run, { env : params, stdio : [ request.connection ] },
       function (error, stdout, stderr) {
 
       	// TODO normal headers parsing
@@ -82,6 +117,5 @@ module.exports = function cgi(config)
         response.write(body)
         response.end()
     });
-    
   }
 }
