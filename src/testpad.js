@@ -29,7 +29,8 @@ var _extend = function() {
 
 var Testpad = module.exports = function (configPath) {
 
-	this.config =  ini.parse(fs.readFileSync(configPath, 'utf-8'))
+	this.config  =  ini.parse(fs.readFileSync(configPath, 'utf-8'))
+	this.runmode = this.config.runmode
 	this.config.workers = (this.config.workers || '').split(/,\s*/)
 	this.workers = {}
 	
@@ -55,7 +56,8 @@ _extend(Testpad.prototype, {
 	runLoop : function(req, res) {
 		
 		res.setHeader("Content-Type", "text/plain")
-
+		req.workers = _extend({}, this.loop)
+		
 		new Loop([req, res], this, this.getLoop(this.config.workers)).next()
 	},
 

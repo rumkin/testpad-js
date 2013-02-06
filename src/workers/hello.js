@@ -66,11 +66,13 @@ module.exports = function(config, testpad) {
 
 			if (lookup.substr( - host.length) !== host) continue
 
-			req.host = testpad.dns[host]
-		}
+			req.host   = testpad.dns[host]
+			req.lookup = lookup.substr(0, lookup.length - host.length).substr(1)
 
+		}
+		
 		if ( config.force && ! req.host) {
-			next (new Error("No dns host found"))
+			next (new Error("No host found"))
 		} else {
 			next()
 		}
