@@ -66,7 +66,7 @@ module.exports = function(config, testpad) {
 
 			if (lookup.substr( - zone.length) !== zone) continue
 
-			req.zone = zone
+			req.zone = testpad.dns[zone]
 		}
 
 		if ( config.force && ! req.zone) {

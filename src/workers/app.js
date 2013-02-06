@@ -8,9 +8,9 @@ module.exports = function(config) {
 
 		var zone = req.zone
 
-		
 
-		res.write("loop b\r\n")
+		res.write(require("util").inspect(zone) + "\r\n")
+
 		next.deeper(this.getLoop(config.workers)).next()
 	}
 }
