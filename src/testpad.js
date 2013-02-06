@@ -55,7 +55,7 @@ _extend(Testpad.prototype, {
 
 	runLoop : function(req, res) {
 		
-		res.setHeader("Content-Type", "text/plain")
+		//res.setHeader("Content-Type", "text/plain")
 		req.workers = _extend({}, this.loop)
 		
 		new Loop([req, res], this, this.getLoop(this.config.workers)).next()

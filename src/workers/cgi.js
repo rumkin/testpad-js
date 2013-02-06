@@ -10,7 +10,7 @@ module.exports = function cgi(config)
 {
   return function (request, response) {
 
-    var urlInfo = request.urlInfo
+    var urlInfo = request.urlinfo
       //, config  = request.app.options
       , queryString = (URL.format({ query : urlInfo.query }) || '' ).substr(1)
       , postData    = (request.postData || '')
