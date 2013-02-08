@@ -1,121 +1,103 @@
-var FS   = require("fs")
-  , Path = require('path')
-  , URL  = require('url')
-  , exec = require('child_process').exec
+var FS    = require("fs" )
+  , Path  = require('path' )
+  , URL   = require('url') 
+  , spawn = require('child_process').spawn
 
 
 // TODO refactoring
 
 module.exports = function cgi(config)
 {
-  return function (request, response) {
+  return function (next, req, res) {
+      var query = url.parse(req.url, true)
+  req.uri   = query.pathname
+  req.query = query.query
 
-    var urlInfo = request.urlinfo
-      //, config  = request.app.options
-      , queryString = (URL.format({ query : urlInfo.query }) || '' ).substr(1)
-      , postData    = (request.postData || '')
-      , params =
-	      {
-	        GATEWAY_INTERFACE : "CGI/1.1",
-	        SCRIPT_FILENAME : Path.join(request.current.directory, urlInfo.pathname),
-	        QUERY_STRING    : queryString,
-	        DOCUMENT_ROOT   : request.current.directory,
-	        SERVER_NAME     : urlInfo.hostname,
-	        SERVER_PORT     : urlInfo.port,
-          SERVER_SOFTWARE : 'node/' + process.version,
-	        SERVER_PROTOCOL : "HTTP/" + request.httpVersion,
-          REQUEST_METHOD  : request.method,
-	        REDIRECT_STATUS : 200,
-	      }
-
-	var command = config.command
-
-	command = command.replace('%pathname%', params.SCRIPT_FILENAME)
-
-  for (var header in request.headers) {
-    var name = 'HTTP_' + header.toUpperCase().replace(/-/g, '_');
-    params[name] = request.headers[header];
-  }
-
-  if (request.method == 'POST') {
-    params.CONTENT_LENGTH  = request.headers['content-length']
-    params.CONTENT_TYPE    = request.headers['content-type']
-  }
-
-  command = command.split(" ")
-  var spawn    = require('child_process').spawn
-    , cgiSpawn = spawn(command.shift(), command, { env : params });
-  
-  request.pipe(cgiSpawn.stdin, {
-    data : function (data) {
-      console.log('stdin: ' + data)
-    },
-    end : function () {
-      console.log('stdin end')
-    }
+  //var env = extend({}, {
+  var env = extend({}, process.env, {
+    GATEWAY_INTERFACE : 'CGI/1.1',
+    SCRIPT_FILENAME   : 'test.php',
+    PATH_INFO         : '',
+    DOCUMENT_ROOT     : '/home/rumkin/Dev/nodejs/cgi',
+    SERVER_NAME       : 'localhost',
+    SERVER_PORT       : 8090,
+    SERVER_PROTOCOL   : 'HTTP/1.1',
+    SERVER_SOFTWARE   : 'node/' + process.version,
+    REDIRECT_STATUS   : 1
   })
 
+  for (var header in req.headers) {
+    var name = 'HTTP_' + header.toUpperCase().replace(/-/g, '_')
+    env[name] = req.headers[header]
+  }
+  
+  extend(env, {
+    REQUEST_METHOD : req.method,
+    QUERY_STRING   : query.search
+  })
+
+  if ('content-length' in req.headers) {
+    env.CONTENT_LENGTH = req.headers['content-length']
+  }
+
+  if ('content-type' in req.headers) {
+    env.CONTENT_TYPE = req.headers['content-type']
+  }
+
+  var  cgi = spawn('php-cgi', ["-c", "/etc/php.ini"], { env : env });
+
+  if (req.method != 'GET') {
+    req.pipe(cgi.stdin)
+  }
+  //process.stdin.pipe(cgi.stdin)
+  
   var headers = false
-  cgiSpawn.stdout.on('data', function (data) {
+  cgi.stdout.on('data', function (data) {
+
     data = data + ''
     if (! headers) {
       while (! /^\r\n/.test(data)) {
         var match = /^([A-z][-_A-z]*):\s(.*)\r\n/.exec(data)
         if (match) {
-          response.setHeader(match[1], match[2])
+          res.setHeader(match[1], match[2])
           data = data.substr(match[0].length)
         }
 
         if (!data.length) break;
       }
 
-      if (data.length) headers = false
+      if (data.length) headers = true
     }
 
-    response.write(data)
+    res.write('' + data);
   });
 
-  cgiSpawn.stderr.on('data', function (data) {
-    response.write(data)
+  cgi.stderr.on('data', function (data) {
+    res.write('Error: ' + data);
   });
 
-  cgiSpawn.on('exit', function (code) {
-    response.end()
-    if (code > 0)
-     next(new Error('child process exited with code ' + code))
+  cgi.on('exit', function (code) {
+    res.end();
   });
-
-    return
-    //var child = exec(run, { env : params, stdio : [ request. , process.stdout, process.stderr] },
-    var child = exec(run, { env : params, stdio : [ request.connection ] },
-      function (error, stdout, stderr) {
-
-      	// TODO normal headers parsing
-
-        var ln= "\r\n" // stdout.indexOf('\n\n') < 0 ? "\r\n" : "\n"
-          , delim   = ln + ln
-          , pos     = stdout.indexOf(delim)
-          , head    = stdout.substr(0, pos).split(ln)
-          , body    = stdout.substr(pos + delim.length)
-          , status  = head[0]
-          , headers = head
-        
-
-        // Set http headers
-        for(var i=-1, l= headers.length; l>(i+=1);)
-        {
-          var header = headers[i].split(': ', 2)
-          response.setHeader(header[0], header[1])
-        }
-        
-        if (error) {
-          response.writeHead(500, 'Internal server error')
-          response.end(stderr + body)
-          return
-        }
-        
-        response.write(body)
-        response.end()
-    });
   }
+}
+
+function extend() {
+
+  if (arguments.length == 0) {
+    return {}
+  } else if (arguments.length == 1) {
+    return arguments[0]
+  }
+
+  var target = arguments[0]
+
+  for (var i = 1, l = arguments.length; l > i; i++) {
+    var source = arguments[i]
+    for (var prop in source) {
+      target[prop] = source[prop]
+    }
+  }
+
+  return target
 }

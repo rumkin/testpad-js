@@ -22,14 +22,17 @@ module.exports = function(config, testpad) {
 			, scriptName  = host['require.' + testpad.runmode]
 			, script      = path.join(directory, hostDir, scriptName)
 		
+		req.pause()
 		return fs.exists(script, function(exists) {
 			if (! exists) {
 				return next(new Error("Script " + script + "not found"))
 			}
 			
+			req.resume()
 			req.current = {
 				directory : path.join(directory, hostDir)
 			}
+
 
 			require(script)(next, req, res)
 		})

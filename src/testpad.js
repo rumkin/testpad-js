@@ -40,9 +40,13 @@ var Testpad = module.exports = function (configPath) {
 _extend(Testpad.prototype, {
 	run : function() {
 
-		var config = this.config
+		var config  = this.config
+			, testpad = this
 
-		http.createServer(this.runLoop.bind(this)).listen(config.port, config.hostname)
+		http.createServer(function(req, res) {
+			req.workers = testpad.loop
+			new Loop([req, res], testpad, [testpad.loop.hello, testpad.loop.logger, testpad.loop.app]).next()
+		}).listen(config.port, config.hostname)
 		console.log("Testpad server started on %s:%s in %s mode", config.hostname, config.port, config.runmode.toUpperCase())
 	},
 
