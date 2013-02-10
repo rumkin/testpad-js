@@ -3,10 +3,11 @@
 */// --------------------------------------------------------------------------
 
 var http = require("http")
-	ini  = require("ini")
-	fs   = require("fs")
-	path = require("path")
-	url  = require("url")
+	, ini  = require("ini")
+	, fs   = require("fs")
+	, path = require("path")
+	, url  = require("url")
+	, format = require("util").format
 
 
 var _extend = function() {
@@ -29,7 +30,7 @@ var _extend = function() {
 
 var Testpad = module.exports = function (configPath) {
 
-	this.config  =  ini.parse(fs.readFileSync(configPath, 'utf-8'))
+	this.config  = ini.parse(fs.readFileSync(configPath, 'utf-8'))
 	this.runmode = this.config.runmode
 	this.config.workers = (this.config.workers || '').split(/,\s*/)
 	this.workers = {}
@@ -62,7 +63,7 @@ _extend(Testpad.prototype, {
 		//res.setHeader("Content-Type", "text/plain")
 		req.workers = _extend({}, this.loop)
 		
-		new Loop([req, res], this, this.getLoop(this.config.workers)).next()
+		new Loop([req, res], this, this.getLoop(this.config.workers)).spin()
 	},
 
 	getLoop : function(queue) {
@@ -116,29 +117,34 @@ _extend(Testpad.prototype, {
 
 // RUN LOOP -------------------------------------------------------------------
 
-var Loop = function(args, scope, loop) {
+// Loop interface
+// var loop = new Loop([], scope, [fn1, fn2, fn3])
+// loop.spin() // Go inside loop
+// loop.loop([fn4, fn5]) // push spins
+
+var Loop = function(args, scope, spins) {
 	if (arguments.length == 2) {
-		loop  = scope
+		spins  = scope
 		scope = null
 	} else if (arguments.length == 1) {
-		loop  = args
+		spins  = args
 		scope = null
 		args  = []
 	}
 
-	this.loop  = loop
+	this.spins  = spins
 	this.scope = scope
 	this.args  = args
 
-	var fn = this.next.bind(this)
-	fn.deeper = this.deeper.bind(this)
+	var fn = this.spin.bind(this)
+	fn.deeper  = this.spins.bind(this)
 	this._next = fn
 }
 
 _extend(Loop.prototype, {
 
-	next : function () {
-		if ( ! this.loop.length) {
+	spin : function () {
+		if ( ! this.spins.length) {
 			this._next = null
 			delete this._next
 			return
@@ -147,13 +153,114 @@ _extend(Loop.prototype, {
 		var passed = Array.prototype.slice.call(arguments)
 			, args = [this._next].concat(this.args).concat(passed)
 		
-		this.loop.shift().apply(this.scope, args)
+		this.spins.shift().apply(this.scope, args)
 	},
 
-	deeper : function(loop) {
-		this.loop = loop.concat(this.loop)
+	loop : function(spins) {
+		this.spins = spins.concat(this.spins)
 		return this
 	}
 
 })
 
+var Testpad = module.exports = {
+	initWithIni : function (iniPath) {
+		var config = ini.parse(fs.readFileSync())
+
+		return new LoopApp(config)
+	}
+
+}
+
+var LoopApp = function (config) {
+	this.config  = _extend({}, config)
+	this.workers = {}
+
+	if ( typeof config.workers !== "object") {
+		throw new Error("Workers not found in config")
+	}
+
+	this.initWorkers(config.workers)
+}
+
+_extend(LoopApp.prototype, {
+	workers : false,
+
+	workerDefaults : {
+		use     : false,
+		include : false
+	},
+
+	initWorkers : function (workers) {
+		var worker
+		for (var name in workers) {
+			worker = workers[name] = _extend({}, this.workerDefaults, workers[name])
+
+			this.initWorker(name, config)
+		}
+
+		this.buildWorkers()
+	},
+
+	initWorker : function (name, config) {
+		var worker
+		if (config.include) {
+			worker = this.loadWorker(config.include)
+		} else if (config.use) {
+			worker = this.getWorker(config.use)
+		} else {
+			worker = this.loadWorker(this.findWorker(name))
+		}
+
+		this.addWorker(name, worker)
+	},
+
+	buildWorkers : function() {
+		var configured = {}
+			, config = this.config.workers
+
+		for (var name in this.workers) {
+			configured[name] = this.workers[name](config[name], this)
+		}
+
+		this.configuredWorkers = configured
+	},
+
+	loadWorker : function (path) {
+		return require(path)
+	},
+
+	findWorker : function (name) {
+		var path = path.join(this.config.workers_dir, name + '.js')
+		
+		if ( ! fs.existsSync(path)) {
+			throw new Error("Worker '%s' not found" )
+		}
+
+		return path
+	},
+
+	addWorker  : function (name, worker) {
+		if ( this.hasWorker(name)) {
+			throw new Error(format("Worker '%s' already exists", name))
+		}
+
+		this.workers[name] = worker
+	},
+
+	getWorker : function (name) {
+		if ( ! this.hasWorker(name)) {
+			throw new Error(format("Worker '%s' not found", name))
+		}
+
+		return this.workers[worker]
+	},
+
+	hasWorker : function (name) {
+		return (name in this.workers)
+	}
+})
+
+
+
+Testpad.application = LoopApp
