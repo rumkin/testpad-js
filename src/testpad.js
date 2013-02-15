@@ -132,12 +132,12 @@ var Loop = function(args, scope, spins) {
 		args  = []
 	}
 
-	this.spins  = spins
+	this.spins = spins
 	this.scope = scope
 	this.args  = args
 
 	var fn = this.spin.bind(this)
-	fn.deeper  = this.spins.bind(this)
+	fn.deeper  = this.loop.bind(this)
 	this._next = fn
 }
 
@@ -153,7 +153,23 @@ _extend(Loop.prototype, {
 		var passed = Array.prototype.slice.call(arguments)
 			, args = [this._next].concat(this.args).concat(passed)
 		
+		if (this._trigger && this._started) {
+				if ( this._trigger.apply(this.scope, this.args) === false) {
+					return
+				}
+		}
+
+		this._started = true
 		this.spins.shift().apply(this.scope, args)
+	},
+	
+	_started : false,
+	// Step callback
+	_trigger : false,
+
+	trigger : function(fn) {
+		this._trigger = fn
+		return this
 	},
 
 	loop : function(spins) {
@@ -165,7 +181,7 @@ _extend(Loop.prototype, {
 
 var Testpad = module.exports = {
 	initWithIni : function (iniPath) {
-		var config = ini.parse(fs.readFileSync())
+		var config = ini.parse(fs.readFileSync(iniPath, 'UTF-8'))
 
 		return new LoopApp(config)
 	}
@@ -173,33 +189,68 @@ var Testpad = module.exports = {
 }
 
 var LoopApp = function (config) {
-	this.config  = _extend({}, config)
-	this.workers = {}
+	var runmode = config.runmode || 'development'
+	config = this.valuesByRunmode(config, runmode)
 
-	if ( typeof config.workers !== "object") {
+	this.config  = _extend({}, this.configDefaults, config)
+	this.workers = _extend({}, this.standardWorkers)
+	
+	if ( typeof config.worker !== "object") {
 		throw new Error("Workers not found in config")
 	}
 
-	this.initWorkers(config.workers)
+	this.initWorkers(config.worker)
+	this.frames = config.frames
 }
 
+// Methods 
 _extend(LoopApp.prototype, {
 	workers : false,
+
+	configDefaults : {
+		port        : 8080,
+		hostname    : 'localhost',
+		workers_dir : path.join(__dirname, "workers"),
+		worker      : {}
+	},
 
 	workerDefaults : {
 		use     : false,
 		include : false
 	},
 
+	valuesByRunmode : function (config, runmode) {
+
+		var prefix    = runmode + '.'
+		  , newConfig = {}
+		  , section, value, newSection, newOption
+
+		for (var key in config) {
+			value = config[key]
+			if (typeof value == "object") {
+				newConfig[key] = this.valuesByRunmode(value, runmode)
+			} else {
+				if (key.indexOf(".") < 0) {
+					newConfig[key] = value
+				} else {
+					if (key.substr(0, prefix.length) == prefix) {
+						key = key.substr(prefix.length)
+						newConfig[key] = value
+					}
+				}
+			}
+		}
+
+		return newConfig
+	},
+
 	initWorkers : function (workers) {
-		var worker
+		var config
 		for (var name in workers) {
-			worker = workers[name] = _extend({}, this.workerDefaults, workers[name])
+			config = workers[name] = _extend({}, this.workerDefaults, workers[name])
 
 			this.initWorker(name, config)
 		}
-
-		this.buildWorkers()
 	},
 
 	initWorker : function (name, config) {
@@ -217,13 +268,13 @@ _extend(LoopApp.prototype, {
 
 	buildWorkers : function() {
 		var configured = {}
-			, config = this.config.workers
+			, config = this.config.worker
 
 		for (var name in this.workers) {
-			configured[name] = this.workers[name](config[name], this)
+			configured[name] = this.workers[name](config[name] || {}, this)
 		}
 
-		this.configuredWorkers = configured
+		return configured
 	},
 
 	loadWorker : function (path) {
@@ -231,13 +282,14 @@ _extend(LoopApp.prototype, {
 	},
 
 	findWorker : function (name) {
-		var path = path.join(this.config.workers_dir, name + '.js')
+		var location = path.join(this.config.workers_dir, name + '.js')
 		
-		if ( ! fs.existsSync(path)) {
-			throw new Error("Worker '%s' not found" )
+
+		if ( ! fs.existsSync(location)) {
+			throw new Error(format("Worker '%s' not found", name))
 		}
 
-		return path
+		return location
 	},
 
 	addWorker  : function (name, worker) {
@@ -253,14 +305,105 @@ _extend(LoopApp.prototype, {
 			throw new Error(format("Worker '%s' not found", name))
 		}
 
-		return this.workers[worker]
+		return this.workers[name]
 	},
 
 	hasWorker : function (name) {
 		return (name in this.workers)
+	},
+
+	run : function() {
+		var workers = this.getWorkers(this.config.workers, this.buildWorkers())
+		http.createServer(this.request.bind(this, workers)).listen(this.config.port, this.config.hostname)
+		return this
+	},
+
+	request : function (workers, request, response) {
+		var app = {
+			env      : _extend({}, this.config.environment),
+			frame    : {},
+			request  : request,
+			response : response,
+			server   : this
+		}
+
+		new Loop([app], this, workers).spin()
+		//response.end(JSON.stringify(this.config, null, 4))
+	},
+
+	getWorkers : function(loop, workers) {
+		
+		if (typeof loop == "string") {
+			loop = loop.split(/,\s*/)
+		}
+
+		var newLoop = []
+			, name
+		for (var i = 0, l = loop.length; l > i; i++) {
+			name = loop[i]
+			if ((name in workers) == false) {
+				throw new Error(format("Worker '%s' not found", name))
+			}
+			newLoop.push(workers[name])
+		}
+
+		return newLoop
 	}
 })
 
-
+// Standart workers
+LoopApp.prototype.standardWorkers = {
+	hi : function (options, server) {
+		return function (next, app) {
+			app.response.end("Hi ^___^")
+		}
+	}
+}
 
 Testpad.application = LoopApp
+
+
+var Loop = function(args, scope, spins) {
+	if (arguments.length == 2) {
+		spins = scope
+		scope = null
+	} else if (arguments.length == 1) {
+		spins = args
+		scope = null
+		args  = []
+	}
+
+	this.spins = spins
+	this.scope = scope
+	this.args  = args
+
+	var fn     = this.spin.bind(this)
+	fn.loop    = this.loop.bind(this)
+	this._next = fn
+}
+
+_extend(Loop.prototype, {
+
+	spin : function () {
+		if ( ! this.spins.length) {
+			this._next = null
+			delete this._next
+			return
+		}
+
+		var passed = Array.prototype.slice.call(arguments)
+			, args = [this._next].concat(this.args).concat(passed)
+		
+		this._started = true
+		this.spins.shift().apply(this.scope, args)
+	},
+	
+	loop : function(spins) {
+		this.spins = spins.concat(this.spins)
+		return this
+	}
+
+})
+
+
+process.exit()

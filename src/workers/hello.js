@@ -51,8 +51,12 @@ module.exports = function(config, testpad) {
 
 	// WORKER -------------------------------------------------------------------
 	
-	return function (next, req, res, err) {
+	return function (next, app, err) {
 		if (err) next(err)
+		if (app.response.isFinished) next()
+
+		var req = app.request
+			, res = app.response
 
 		req.urlinfo = url.parse('http://' + req.headers.host + req.url, true)
 		req.query   = req.urlinfo.query
