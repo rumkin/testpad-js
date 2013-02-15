@@ -10,7 +10,7 @@ var http = require("http")
 	, format = require("util").format
 
 
-var _extend = function() {
+function _extend (target, source) {
 	if (arguments.length < 1) return {}
 	if (arguments.length == 1) return arguments[0]
 
@@ -24,6 +24,16 @@ var _extend = function() {
 	}
 
 	return target
+}
+
+function _proto (object) {
+	object = _extend({}, object)
+	var constructor = object.constructor
+	delete object.constructor
+
+	_extend(constructor.prototype, object)
+
+	return constructor
 }
 
 // TESTPAD --------------------------------------------------------------------
@@ -363,36 +373,36 @@ LoopApp.prototype.standardWorkers = {
 Testpad.application = LoopApp
 
 
-var Loop = function(args, scope, spins) {
-	if (arguments.length == 2) {
-		spins = scope
-		scope = null
-	} else if (arguments.length == 1) {
-		spins = args
-		scope = null
-		args  = []
-	}
+var Loop = _extend({
 
-	this.spins = spins
-	this.scope = scope
-	this.args  = args
+	constructor : function(args, scope, spins) {
+		if (arguments.length == 2) {
+			spins = scope
+			scope = null
+		} else if (arguments.length == 1) {
+			spins = args
+			scope = null
+			args  = []
+		}
 
-	var fn     = this.spin.bind(this)
-	fn.loop    = this.loop.bind(this)
-	this._next = fn
-}
+		this.spins = spins
+		this.scope = scope
+		this.args  = args
 
-_extend(Loop.prototype, {
+		var fn     = this.spin.bind(this)
+		fn.loop    = this.loop.bind(this)
+		this._spin = fn
+	},
 
 	spin : function () {
 		if ( ! this.spins.length) {
-			this._next = null
-			delete this._next
+			this._spin = null
+			delete this._spin
 			return
 		}
 
 		var passed = Array.prototype.slice.call(arguments)
-			, args = [this._next].concat(this.args).concat(passed)
+			, args = [this._spin].concat(this.args).concat(passed)
 		
 		this._started = true
 		this.spins.shift().apply(this.scope, args)

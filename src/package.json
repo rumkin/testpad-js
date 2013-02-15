@@ -1,5 +1,5 @@
 {
 	"name" : "testpad",
 	"description" : "Testpad is a web development tool with wildcard domains",
-	"main" : "./testlab.js"
+	"main" : "./testpad.js"
 }
