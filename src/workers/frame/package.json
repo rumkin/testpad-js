@@ -1,0 +1,12 @@
+{
+  "author": {
+    "name" : "Pasha Rumkin",
+    "url"  : "http://github.com/rumkin",
+    "email": "dev@rumk.in"
+  },
+  "keywords" : ["worker", "testpad"],
+  "main": "frame.js",
+  "name": "frame worker",
+  "description": "Testpad frames worker",
+  "version": 0.1
+}
