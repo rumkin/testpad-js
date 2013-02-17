@@ -67,8 +67,6 @@ module.exports = worker.extend({
 		for (var i = 0, l = frames.length; l > i; i++) {
 			var name = frames[i]
 			
-			console.log(name, lookup)
-
 			if (lookup.substr( - name.length) === name) {
 				frame.name   = name
 				frame.search = lookup.substr(0, lookup.length - name.length).substr(1)
@@ -81,8 +79,12 @@ module.exports = worker.extend({
 			return
 		}
 		
-		app.frame = _extend({}, this.routes[name], frame)
-		
+		app.frame    = frame = _extend({}, this.routes[name], frame)
+		app.env.host = req.uri.hostname
+		for (var name in frame) {
+			app.env['frame_' + name] = frame[name]
+		}
+
 		next()
 
 	},

@@ -1,0 +1,13 @@
+{
+  "author": {
+    "name" : "Pasha Rumkin",
+    "url"  : "http://github.com/rumkin",
+    "email": "dev@rumk.in"
+  },
+  "keywords" : ["worker", "testpad"],
+  "main": "fs.js",
+  "name": "fs worker",
+  "description": "File system worker",
+  "repository" : {"url": "{$PROJECT_GIT}", "type": "git"},
+  "version": 0.5
+}

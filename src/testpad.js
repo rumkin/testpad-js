@@ -202,6 +202,7 @@ var Server = module.exports = _proto({
 				response : res,
 				send     : res.end.bind(res),
 				config   : this.config,
+				env      : {},
 				workers  : workers
 			}
 
