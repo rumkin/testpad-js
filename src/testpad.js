@@ -65,7 +65,7 @@ var Server = module.exports = _proto({
 	configDefaults : {
 		port        : 8080,
 		hostname    : 'localhost',
-		workers_dir : path.join(__dirname, "workers"),
+		//workers_dir : path.join(__dirname, "workers"),
 		worker      : {}
 	},
 
@@ -74,28 +74,49 @@ var Server = module.exports = _proto({
 		include : false
 	},
 
+	"static initWithIni" : function(iniLocation) {
+		var config = ini.parse(fs.readFileSync(iniLocation, 'utf-8'))
+			, server = new this(config)
+
+		var hostDir = config.dirs.hosts
+			, files   = fs.readdirSync(hostDir)
+
+		var file, stat, host, hostConfig
+		for (var i = 0, l = files.length; l > i; i++) {
+			file = path.join(hostDir, files[i])
+			if (path.extname(file) !== ".ini") continue
+			stat = fs.statSync(file)
+
+			host = files[i]
+			host = host.substr(0, host.length - 4)
+			// Add host
+			server.addHost(host, ini.parse(fs.readFileSync(file, 'utf-8')))
+		}
+		return server
+	},
+
+
 	constructor : function (config) {
-		var runmode = config.runmode || 'development'
+		var runmode = this.runmode = config.runmode || 'development'
 		config = this.valuesByRunmode(config, runmode)
 
 		this.config  = _extend({}, this.configDefaults, config)
-		
+		this.hosts   = {}
+		this.workers = {}
+
+		this.workersDir = this.config.dirs.workers || path.join(__dirname, "workers")
+
 		if (typeof config.worker !== "object") {
 			throw new Error("Workers not found in config")
 		}
 
-		this.workers = this.loadWorkers(config.worker)
+		//this.workers = this.loadWorkers(config.worker)
 
 		this.frames = config.frame
 	},
 
-	"static initWithIni" : function(iniLocation) {
-		var config = ini.parse(fs.readFileSync(iniLocation, 'utf-8'))
-
-		return new this(config)
-	},
-
 	valuesByRunmode : function (config, runmode) {
+		runmode = runmode || this.runmode
 
 		var prefix    = runmode + '.'
 		  , newConfig = {}
@@ -120,37 +141,48 @@ var Server = module.exports = _proto({
 		return newConfig
 	},
 
-	loadWorkers : function(workersConfig) {
-		var workers = {}
-		  , workerConfig, location, worker
+	hasHost : function (name) {
+		return (name in this.hosts)
+	},
 
-		for (var name in workersConfig) {
-			workerConfig = _extend({}, this.workerDefaults, workersConfig[name])
-
-			if (workerConfig.use) {
-				if ( ! this.workers[workerConfig.use]) {
-					throw new Error(format("Worker '%s' doesn't exists"))
-				}
-				worker = this.workers[workerConfig.use]
-
-			} else {
-
-				if (workerConfig.include) {
-					location = workerConfig.include
-					if (location.charAt(0) !== "/") {
-						location = path.join(this.config.workers_dir, location)
-					}
-				} else {
-					location = path.join(this.config.workers_dir, name)
-				}
-
-				worker = require(location)
-			}
-
-			workers[name] = worker
+	addHost : function(name, config) {
+		if (this.hasHost(name)) {
+			throw new Error(format("Host '%s' already exists", name))
 		}
 
-		return workers
+		var workers = config.workers
+		if (typeof workers == "string") {
+			workers = workers.split(/,\s*/)
+			config.workers = workers
+		}
+
+		var worker
+		for (var i = 0, l = workers.length; l > i; i++) {
+			worker = workers[i]
+			if (this.hasWorker(worker)) continue
+
+			this.loadWorker(worker)
+		}
+
+		this.hosts[name] = config
+	},
+
+	getHost : function (name) {
+		return this.hosts[name]
+	},
+
+	hasWorker : function (name) {
+		return (name in this.workers)
+	},
+
+	loadWorker : function (workerName) {
+		var location = path.join(this.workersDir, workerName)
+
+		this.workers[workerName] = require(location)
+	},
+
+	getWorker : function (name) {
+		return this.workers[name]
 	},
 
 	buildQueue : function(list, workers) {
@@ -176,51 +208,127 @@ var Server = module.exports = _proto({
 
 	run : function() {
 		
-		var config  = this.config
-		  , workers = this.workers
-	    , configured   = {}
-	    , workerConfig = config.worker
-
-	  for (var name in workers) {
-	  	configured[name] = new workers[name](this, workerConfig[name] || {})
-	  }
-
-	  var host = config.hostname
-	  	, port = config.port
+	  var host = this.config.hostname
+	  	, port = this.config.port
 	  
-	  http.createServer(this.request.bind(this, configured)).listen(port, host)
+	  http.createServer(this.request.bind(this)).listen(port, host)
 	  return this
 	},
 
-	request : function(workers, req, res) {
-
-		var queue = this.buildQueue(this.config.workers, workers)
-			, app   =
-			{
-				server   : this,
-				request  : req,
-				response : res,
-				send     : res.end.bind(res),
-				config   : this.config,
-				env      : {},
-				workers  : workers
-			}
+	request : function (req, res) {
 
 		req.uri = url.parse('http://' + req.headers.host + req.url, true)
-		queue.push(this.clean)
-		
-		new Looop([app], queue).spin()
-	},
 
-	clean : function (next, app, err) {
-		if (app.response.isFinished === false) {
-			app.response.end('')
+		var host = req.uri.hostname.split(".")
+			, search
+
+		while (host.length) {
+			search = host.join('.')
+			if (this.hasHost(search)) {
+
+				
+				var host  = new Host(this, search)
+				  , queue = host.buildQueue()
+
+				queue.push(this.clean.bind([host, queue]))
+				var loop =  new Looop([req, res], queue)
+				loop.spin()
+				return
+			}
+
+			host.shift()
 		}
 
-		for (var i in app) {
-			app[i] = null
-			delete app[i]
+		res.end("Not found")
+	},
+
+	clean : function (next, req, res, err) {
+		var item
+		for (var i = 0, l = this.length; l > i; i++) {
+			item = this[i]
+
+			if (typeof item.destroy == "function") {
+				item.destroy()
+			}
+
+			for (var name in item) {
+				item[name] = undefined
+				delete item[name]
+			}
 		}
 	}
 })
 
+
+var Host = _proto({
+	constructor : function (server, name) {
+		this.server  = server
+		this.name    = name
+		this.config  = _extend({}, server.getHost(name))
+		this.params  = {}
+		this.workers = {}
+	},
+
+	getParam : function (name) {
+		return this.params[name]
+	},
+
+	getParams : function() {
+		return _extend({}, this.params)
+	},
+
+	setParam : function (name, value) {
+		this.params[name] = value
+		return this
+	},
+
+	setParams : function() {
+		for (var name in params) {
+			this.params[name] = params[name]
+		}
+
+		return this
+	},
+
+	getName   : function () {
+		return this.name
+	},
+	getConfig : function () {
+		return this.config
+	},
+	
+	buildQueue : function () {
+		var workers = this.config.workers
+			, queue   = []
+			, name, worker, config
+
+		for (var i = 0, l = workers.length; l > i; i++) {
+			name   = workers[i]
+			config = this.server.valuesByRunmode(this.config[name] || this.server.config[name])
+			worker = this.getWorker(name, config)
+			this.workers[name] = worker
+			queue.push(worker.run.bind(worker))
+		}
+
+		return queue
+	},
+
+	getWorker : function (name, config) {
+		var worker = this.server.getWorker(name)
+
+		return new worker(this.server, this, config)
+	},
+	destroy : function () {
+
+		for (var name in this.workers) {
+			worker.destroy()
+			this.workers[name] = undefined
+			delete this.workers[name]
+		}
+
+		for (var prop in this) {
+			this[prop] = undefined
+			delete this[prop]
+		}
+	}
+})
