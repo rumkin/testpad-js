@@ -11,6 +11,7 @@ var http = require("http")
 	, format  = require("util").format
 	, tools   = require("tools")
 	, _extend = tools.extend
+	, _copy   = tools.copy
 	, _proto  = tools.proto
 
 
@@ -100,7 +101,7 @@ var Server = module.exports = _proto({
 		var runmode = this.runmode = config.runmode || 'development'
 		config = this.valuesByRunmode(config, runmode)
 
-		this.config  = _extend({}, this.configDefaults, config)
+		this.config  = tools.extendDeep(_copy(this.configDefaults), _copy(config))
 		this.hosts   = {}
 		this.workers = {}
 
@@ -243,6 +244,7 @@ var Server = module.exports = _proto({
 	},
 
 	clean : function (next, req, res, err) {
+		this.push(this)
 		var item
 		for (var i = 0, l = this.length; l > i; i++) {
 			item = this[i]
@@ -251,10 +253,7 @@ var Server = module.exports = _proto({
 				item.destroy()
 			}
 
-			for (var name in item) {
-				item[name] = undefined
-				delete item[name]
-			}
+			tools.destroy(item)
 		}
 	}
 })
@@ -264,7 +263,7 @@ var Host = _proto({
 	constructor : function (server, name) {
 		this.server  = server
 		this.name    = name
-		this.config  = _extend({}, server.getHost(name))
+		this.config  = _copy(server.getHost(name))
 		this.params  = {}
 		this.workers = {}
 	},
@@ -274,7 +273,7 @@ var Host = _proto({
 	},
 
 	getParams : function() {
-		return _extend({}, this.params)
+		return _copy(this.params)
 	},
 
 	setParam : function (name, value) {
@@ -318,17 +317,15 @@ var Host = _proto({
 
 		return new worker(this.server, this, config)
 	},
+	
 	destroy : function () {
 
 		for (var name in this.workers) {
-			worker.destroy()
+			this.workers[name].destroy()
 			this.workers[name] = undefined
 			delete this.workers[name]
 		}
 
-		for (var prop in this) {
-			this[prop] = undefined
-			delete this[prop]
-		}
+		tools.destroy(this)
 	}
 })

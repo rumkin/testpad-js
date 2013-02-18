@@ -5,8 +5,8 @@
     "email": "dev@rumk.in"
   },
   "keywords" : ["worker", "testpad"],
-  "main": "frame.js",
-  "name": "frame worker",
-  "description": "Testpad frames worker",
+  "main": "worker.js",
+  "name": "Default worker",
+  "description": "Testpad default worker",
   "version": 0.1
 }

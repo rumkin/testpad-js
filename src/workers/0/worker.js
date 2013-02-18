@@ -24,10 +24,31 @@ module.exports = worker.extend({
 
 	run : function (next, req, res, err) {
 
-		if (err) {
-			res.end(this.getRandomMessage() + "! ^___^\r\n\r\n" + err)
+		if (res.isFinished) {
+			next()
+			return
+		}
+
+		var message
+		if (this.config.funny) {
+			message = this.getRandomMessage()
+			if (err) {
+				message += "! ^___^"
+			} else {
+				message += " anyway! ^___^"
+			}
 		} else {
-			res.end(this.getRandomMessage() + " anyway! ^___^")
+			if (err) {
+				message = "Error"
+			} else {
+				message = "Nothing to show"
+			}
+		}
+
+		if (err) {
+			res.end(message + "\r\n\r\n" + err)
+		} else {
+			res.end(message)
 		}
 	},
 })

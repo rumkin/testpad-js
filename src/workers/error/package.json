@@ -5,9 +5,8 @@
     "email": "dev@rumk.in"
   },
   "keywords" : ["worker", "testpad"],
-  "main": "fs.js",
-  "name": "fs worker",
-  "description": "File system worker",
-  "repository" : {"url": "{$PROJECT_GIT}", "type": "git"},
-  "version": 0.5
+  "main": "error.js",
+  "name": "error worker",
+  "description": "Testpad error worker",
+  "version": 0.1
 }

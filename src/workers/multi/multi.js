@@ -29,7 +29,6 @@ module.exports = worker.extend({
 				hostPath = search
 		}
 
-
 		var docRoot = path.join(this.host.config.docroot, hostPath)
 		//res.write("New docroot is" + docRoot + "\r\n")
 		this.host.config.docroot = docRoot

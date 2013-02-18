@@ -7,8 +7,12 @@ module.exports = worker.extend({
 
 	run : function (next, req, res, err) {
 
+		if (err || res.isFinished) {
+			next(err)
+			return
+		}
+
 		var location = this.host.config.docroot + '/' + this.config.require
-			, exec = require(location)(next, req, res, err)
-		next()		
+			, exec = require(location).call(this.host, next, req, res, err)
 	},
 })
