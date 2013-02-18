@@ -1,0 +1,12 @@
+{
+  "author": {
+    "name" : "Pasha Rumkin",
+    "url"  : "http://github.com/rumkin",
+    "email": "dev@rumk.in"
+  },
+  "keywords" : ["worker", "testpad"],
+  "main": "customize.js",
+  "name": "Request customizer",
+  "description": "Customize request by loading special user script",
+  "version": 0.1
+}
