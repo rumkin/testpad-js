@@ -9,3 +9,4 @@
 - UI Pack worker
 - HTTP API
 - Add HTML-UI worker
+- Memcached GUI controller worker
