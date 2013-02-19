@@ -1,6 +1,11 @@
+- Change example
+- Add configuration and worker layout
+- Run with command-line arguments
 - Redirect worker
 - Check file state
 - Mime-type plugin
+- Add access worker
 + LESS worker
 - UI Pack worker
 - HTTP API
+- Add HTML-UI worker
