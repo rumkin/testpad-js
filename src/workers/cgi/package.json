@@ -4,9 +4,9 @@
     "url"  : "http://github.com/rumkin",
     "email": "dev@rumk.in"
   },
-  "keywords" : ["worker", "testpad"],
-  "main": "cgi.js",
-  "name": "CGI worker",
+  "keywords"   : ["worker", "testpad"],
+  "main"       : "cgi.js",
+  "name"       : "CGI worker",
   "description": "CGI script worker",
-  "version": 0.1
+  "version"    : 0.1
 }

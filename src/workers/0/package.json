@@ -4,9 +4,9 @@
     "url"  : "http://github.com/rumkin",
     "email": "dev@rumk.in"
   },
-  "keywords" : ["worker", "testpad"],
-  "main": "worker.js",
-  "name": "Default worker",
+  "keywords"   : ["worker", "testpad"],
+  "main"       : "worker.js",
+  "name"       : "Default worker",
   "description": "Testpad default worker",
-  "version": 0.1
+  "version"    : 0.1
 }
