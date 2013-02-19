@@ -1,6 +1,6 @@
 - Redirect worker
 - Check file state
 - Mime-type plugin
-- Less worker
++ LESS worker
 - UI Pack worker
 - HTTP API
