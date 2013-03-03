@@ -84,7 +84,8 @@ module.exports = worker.extend({
 			, headers = false
 
 		cgi.stdout.on('data', function (data) {
-			if ( ! headers) {
+
+			if ( ! res._headerSent) {
 				header = true
 
 				var data = data.toString('utf-8')
@@ -96,12 +97,12 @@ module.exports = worker.extend({
 					if ( crlfPos < 0) break;
 
 					var header = data.substr(0, crlfPos);
+					data = data.substr(crlfPos + 2)
 					if ( ! header.length) break;
 
 					header = header.split(/:\s*/, 2)
 					if (header.length !== 2) break;
 					
-					data = data.substr(crlfPos + 2)
 
 					var name  = header[0]
 						, value = header[1]
