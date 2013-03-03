@@ -244,6 +244,10 @@ var Server = module.exports = _proto({
 	},
 
 	clean : function (next, req, res, err) {
+		
+		if ( ! res.isFinished) res.end()
+
+		// What ? make clear
 		this.push(this)
 		var item
 		for (var i = 0, l = this.length; l > i; i++) {

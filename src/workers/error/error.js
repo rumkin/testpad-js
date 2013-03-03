@@ -28,7 +28,7 @@ module.exports = worker.extend({
 			next()
 			return
 		}
-
+		
 		var message
 		if (this.config.funny) {
 			message = this.getRandomMessage()
@@ -41,6 +41,7 @@ module.exports = worker.extend({
 			if (err) {
 				message = "Error"
 			} else {
+				res.statusCode = 404
 				message = "Nothing to show"
 			}
 		}
@@ -50,5 +51,8 @@ module.exports = worker.extend({
 		} else {
 			res.end(message)
 		}
+
+		next()
+		// console.log("THERE", req.uri.pathname)
 	},
 })

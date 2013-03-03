@@ -44,28 +44,35 @@ module.exports = worker.extend({
 
 		var worker = this
 		req.pause()
-		fs.stat(pathname, function(err, stat){
-
-			if (err || ! stat.isFile()) {
+		fs.exists(pathname, function(exists) {
+			
+			if (! exists) {
 				req.resume()
-				next(err)
-				return
+				return next()
 			}
 
-			fs.readFile(pathname, function(err, file){
-				req.resume()
-				if ( ! err ) {
-					console.log('ext', ext)
-
-					if (ext in worker.mimeTypes) {
-						res.setHeader("Content-Type", worker.mimeTypes[ext])
-					}
-
-					res.end(file)
+			fs.stat(pathname, function(err, stat){
+				if (err || ! stat.isFile()) {
+					req.resume()
+					next(err)
+					return
 				}
 
-				next(err)
+				fs.readFile(pathname, function(err, file){
+					req.resume()
+					if ( ! err ) {
+
+						if (ext in worker.mimeTypes) {
+							res.setHeader("Content-Type", worker.mimeTypes[ext])
+						}
+
+						res.end(file)
+					}
+
+					next(err)
+				})
 			})
 		})
+		
 	}
 })
