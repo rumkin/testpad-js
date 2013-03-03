@@ -15,9 +15,23 @@ module.exports = worker.extend({
 		return messages[i]
 	},
 
+	mimeTypes : {
+		// Text formats
+		"css" : "text/css",
+		"html": "text/html",
+		"txt" : "text/plain",
+		"js"  : "text/javascript",
+		// Images
+		"jpg"  : "image/jpeg",
+		"jpeg" : "image/jpeg",
+		"gif"  : "image/gif",
+		"png"  : "image/png"
+	},
+
 	run : function (next, req, res, err) {
 
-		var pathname = path.join(this.host.config.docroot, req.uri.pathname)
+		var pathname = path.join(this.host.config.docroot, this.host.config.static.dir, req.uri.pathname)
+			, ext      = path.extname(req.uri.pathname).substr(1).toLowerCase()
 
 		if (this.config.skip_ext) {
 
@@ -28,6 +42,7 @@ module.exports = worker.extend({
 			}
 		}
 
+		var worker = this
 		req.pause()
 		fs.stat(pathname, function(err, stat){
 
@@ -40,6 +55,12 @@ module.exports = worker.extend({
 			fs.readFile(pathname, function(err, file){
 				req.resume()
 				if ( ! err ) {
+					console.log('ext', ext)
+
+					if (ext in worker.mimeTypes) {
+						res.setHeader("Content-Type", worker.mimeTypes[ext])
+					}
+
 					res.end(file)
 				}
 
