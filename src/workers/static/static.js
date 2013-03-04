@@ -30,6 +30,8 @@ module.exports = worker.extend({
 
 	run : function (next, req, res, err) {
 
+		if (err || res.isFinished) return next(err)
+
 		var pathname = path.join(this.host.config.docroot, this.host.config.static.dir, req.uri.pathname)
 			, ext      = path.extname(req.uri.pathname).substr(1).toLowerCase()
 
