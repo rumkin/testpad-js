@@ -21,6 +21,7 @@ module.exports = worker.extend({
 		"html": "text/html",
 		"txt" : "text/plain",
 		"js"  : "text/javascript",
+		"json": "application/json",
 		// Images
 		"jpg"  : "image/jpeg",
 		"jpeg" : "image/jpeg",
