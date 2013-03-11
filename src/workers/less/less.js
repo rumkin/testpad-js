@@ -25,18 +25,23 @@ module.exports = worker.extend({
 			return
 		}
 
-		var css = less.render(fs.readFileSync(location, 'utf-8'), {
-			env : this.config.env || 'production'
-		}, function(err, css){
-			if (err) {
-				next(err)
-				return
-			}
+		try {
+			var css = less.render(fs.readFileSync(location, 'utf-8'), {
+				env : this.config.env || 'production'
+			}, function(err, css){
+				if (err) {
+					next(err)
+					return
+				}
 
-			res.setHeader("Content-Type", "text/css")
-			res.statusCode = 200
-			res.end(css)
-			next()
-		})
+				res.setHeader("Content-Type", "text/css")
+				res.statusCode = 200
+				res.end(css)
+				next()
+			})
+		} catch (e) {
+			err = new Error('Less error: ' + e.message + ' in ' + location)
+			next(err)
+		}
 	},
 })

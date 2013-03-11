@@ -47,12 +47,11 @@ module.exports = worker.extend({
 		}
 
 		if (err) {
-			res.end(message + "\r\n\r\n" + err)
+			res.end(message + "\r\n\r\n" + (err.stack || err.message))
 		} else {
 			res.end(message)
 		}
 
 		next()
-		// console.log("THERE", req.uri.pathname)
 	},
 })

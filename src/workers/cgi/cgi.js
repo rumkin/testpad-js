@@ -71,7 +71,7 @@ module.exports = worker.extend({
 			env.CONTENT_TYPE = req.headers['content-type']
 		}
 
-		var cgi = spawn('php-cgi', hostconf.argv || ["-c", "/etc/php.ini"], { env : env, cwd : hostconf.docroot });
+		var cgi = spawn('php-cgi', this.config.argv || ["-c", "/etc/php.ini"], { env : env, cwd : docRoot });
 
 		if (req.method != 'GET') {
 			// Redirect HTTP request body to cgi input
@@ -106,12 +106,12 @@ module.exports = worker.extend({
 				
 				if ( ! header.length) break;
 
-				header = header.split(/:\s*/, 2)
-				if (header.length !== 2) break;
+				var colonPos = header.indexOf(':')
+				if (colonPos < 0) break;
 				
 
-				var name  = header[0]
-					, value = header[1]
+				var name  = header.substr(0, colonPos)
+					, value = header.substr(colonPos + 1)
 
 				if (name == 'Status') {
 					res.statusCode = parseInt(value, 10) || 0
