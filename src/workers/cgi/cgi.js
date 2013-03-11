@@ -84,56 +84,47 @@ module.exports = worker.extend({
 			, headers = false
 
 		cgi.stdout.on('data', function (data) {
-
-			if ( ! res._headerSent) {
-				header = true
-
-				var data = data.toString('utf-8')
-				
-				// Parse headers
-				while (true) {
-					var crlfPos = data.indexOf("\r\n")
-
-					if ( crlfPos < 0) break;
-
-					var header = data.substr(0, crlfPos);
-					data = data.substr(crlfPos + 2)
-					if ( ! header.length) break;
-
-					header = header.split(/:\s*/, 2)
-					if (header.length !== 2) break;
-					
-
-					var name  = header[0]
-						, value = header[1]
-
-					if (name == 'Status') {
-						res.statusCode = parseInt(value, 10) || 0
-					} else {
-						res.setHeader(name, value)
-					}
-
-				}
-
-				res.write(buff.toString('utf-8'))
-				res.write(data)
-				buff = new Buffer('')
-			} else {
-				res.write(buff.toString('utf-8'))
-				res.write(data)
-			}
+		  buff = Buffer.concat([buff, data], buff.length + data.length)
 		});
 
 		cgi.stderr.on('data', function (data) {
-			// Prevent output before headers are sent. Use buffering to collect output
-			if ( ! headers) {
-			  buff = Buffer.concat([buff, data], buff.length + data.length)
-			} else {
-				res.write(data)
-			}
+		  buff = Buffer.concat([buff, data], buff.length + data.length)
 		});
 
 		cgi.on('exit', function (code) {
+
+			var data = buff.toString('utf-8')
+			
+			// Parse headers
+			while (true) {
+				var crlfPos = data.indexOf("\r\n")
+
+				if ( crlfPos < 0) break;
+
+				var header = data.substr(0, crlfPos);
+				data = data.substr(crlfPos + 2)
+				
+				if ( ! header.length) break;
+
+				header = header.split(/:\s*/, 2)
+				if (header.length !== 2) break;
+				
+
+				var name  = header[0]
+					, value = header[1]
+
+				if (name == 'Status') {
+					res.statusCode = parseInt(value, 10) || 0
+				} else {
+					res.setHeader(name, value)
+				}
+
+			}
+
+			// res.write(buff.toString('utf-8'))
+			res.write(data)
+			// buff = new Buffer('')
+
 		  res.end();
 		});
 	}
