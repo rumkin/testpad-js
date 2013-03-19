@@ -36,6 +36,7 @@ module.exports = worker.extend({
 		var pathname = path.join(this.host.config.docroot, this.host.config.static.dir, req.uri.pathname)
 			, ext      = path.extname(req.uri.pathname).substr(1).toLowerCase()
 
+
 		if (this.config.skip_ext) {
 
 			var extname = path.extname(pathname)
