@@ -53,6 +53,7 @@ module.exports = worker.extend({
 	    SERVER_SOFTWARE   : 'node/' + process.version,
 	    REDIRECT_STATUS   : 1,
 			REQUEST_METHOD    : req.method,
+			REQUEST_URI       : req.uri.pathname,
 			QUERY_STRING      : (query.search || '?').substr(1)
 		})
 
